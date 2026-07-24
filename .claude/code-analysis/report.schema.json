@@ -1,0 +1,167 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://memory-bank-framework/ca/report.schema.json",
+  "title": "ca-review agent reports",
+  "description": "Строгие схемы межстадийных отчётов ревью-каскада /ca-review команды flow. 5 ревью-ролей: flow-router, flow-finder, flow-reviewer (=свод+критика), flow-advocate, flow-expert. additionalProperties:false везде. Лимиты РАЗМЕРА (КБ) — в scheduler-config.json (оркестратор), не в схеме.",
+
+  "definitions": {
+    "confidence": { "type": "string", "enum": ["high", "medium", "low"] },
+    "severity": { "type": "string", "enum": ["critical", "high", "medium", "low"] },
+    "verdict": { "type": "string", "enum": ["confirmed", "false_positive", "overstated"] },
+
+    "finding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "confidence", "file", "line", "summary", "explanation"],
+      "properties": {
+        "severity": { "$ref": "#/definitions/severity" },
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "file": { "type": "string", "description": "repo-relative path" },
+        "line": { "type": "integer", "minimum": 1 },
+        "summary": { "type": "string", "description": "одно предложение — что за дефект" },
+        "explanation": { "type": "string", "description": "<=2 предложения — почему это дефект" }
+      }
+    },
+
+    "reviewedFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["severity", "confidence", "file", "line", "summary", "explanation", "verdict"],
+      "properties": {
+        "severity": { "$ref": "#/definitions/severity" },
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "file": { "type": "string" },
+        "line": { "type": "integer", "minimum": 1 },
+        "summary": { "type": "string" },
+        "explanation": { "type": "string", "description": "<=2 предложения" },
+        "verdict": { "$ref": "#/definitions/verdict", "description": "критика Reviewer'а: confirmed | false_positive | overstated" },
+        "verdict_reason": { "type": "string", "description": "краткая причина вердикта" }
+      }
+    },
+
+    "FinderReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["finder_id", "scope", "confidence", "scope_insufficient", "truncated", "findings"],
+      "properties": {
+        "finder_id": { "type": "string", "description": "id подсистемы ИЛИ батча подсистем" },
+        "scope": { "type": "array", "items": { "type": "string" }, "description": "якоря file:line-range выданного scope (может покрывать несколько мелких подсистем — батч)" },
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "scope_insufficient": { "type": "boolean" },
+        "requested_expansion": { "type": ["string", "null"] },
+        "truncated": { "type": "boolean" },
+        "findings": { "type": "array", "items": { "$ref": "#/definitions/finding" } }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "scope_insufficient": { "const": true } } },
+          "then": { "required": ["requested_expansion"], "properties": { "requested_expansion": { "type": "string", "minLength": 1 } } }
+        }
+      ]
+    },
+
+    "RouterOutput": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["subsystems", "architecture_zone_hits", "diff_summary"],
+      "properties": {
+        "subsystems": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["id", "files", "risk", "reason"],
+            "properties": {
+              "id": { "type": "string" },
+              "files": { "type": "array", "items": { "type": "string" } },
+              "risk": { "type": "string", "enum": ["high", "medium", "low"] },
+              "reason": { "type": "string" }
+            }
+          }
+        },
+        "architecture_zone_hits": { "type": "array", "items": { "type": "string" } },
+        "diff_summary": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["files", "hunks"],
+          "properties": { "files": { "type": "integer" }, "hunks": { "type": "integer" } }
+        }
+      }
+    },
+
+    "ReviewerReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Свод (бывш. Synthesis) + встроенная критика (бывш. Critic): агрегирует находки Finder'ов, размечает каждую вердиктом, ищет пересечения scope, ставит общую уверенность.",
+      "required": ["confidence", "findings", "overlaps"],
+      "properties": {
+        "confidence": { "$ref": "#/definitions/confidence" },
+        "findings": { "type": "array", "items": { "$ref": "#/definitions/reviewedFinding" } },
+        "overlaps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["anchor", "finder_ids"],
+            "properties": {
+              "anchor": { "type": "string", "description": "file:line участка" },
+              "finder_ids": { "type": "array", "minItems": 2, "items": { "type": "string" }, "description": "≥2 РАЗНЫХ Finder'а на одном участке" }
+            }
+          }
+        }
+      }
+    },
+
+    "AdvocateHypotheses": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["hypotheses"],
+      "properties": {
+        "hypotheses": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["severity", "anchor", "why_check"],
+            "properties": {
+              "severity": { "$ref": "#/definitions/severity" },
+              "anchor": { "type": "string" },
+              "why_check": { "type": "string", "description": "почему стоит проверить (контр-гипотеза, не вердикт)" }
+            }
+          }
+        }
+      }
+    },
+
+    "ExpertVerdict": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["target", "verdict", "explanation"],
+      "properties": {
+        "target": { "type": "string", "description": "эскалированный участок/гипотеза (file:line)" },
+        "verdict": { "type": "string", "enum": ["confirmed_issue", "no_issue", "needs_more"] },
+        "severity": { "$ref": "#/definitions/severity" },
+        "explanation": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "verdict": { "const": "confirmed_issue" } } },
+          "then": { "required": ["severity"] }
+        }
+      ]
+    },
+
+    "ExpertReport": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["verdicts"],
+      "properties": {
+        "verdicts": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/ExpertVerdict" },
+          "description": "БАТЧ вердиктов Expert по всем эскалированным целям за ОДИН Opus-вызов (борьба с escalation fan-out — ≤1 Opus независимо от числа зон)"
+        }
+      }
+    }
+  }
+}

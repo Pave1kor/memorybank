@@ -1,0 +1,17 @@
+# Memory Bank recall index (регенерируется mb_recall.py)
+memory-bank/.recall-index.json
+
+# Эфемерные артефакты cost-aware ревью (регенерируются каскадом /ca-review)
+.claude/code-analysis/last-run-log.json
+.claude/code-analysis/import-graph.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*.swp
+*~
+
+# Scratch / временное
+*.bak
+scratch/
+.playwright-mcp/

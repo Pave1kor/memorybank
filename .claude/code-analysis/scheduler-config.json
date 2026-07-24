@@ -1,0 +1,20 @@
+{
+  "_description": "Единый источник порогов cost-aware оркестратора /ca-review (без магических литералов в SKILL.md/агентах). Меняются ТОЛЬКО здесь. Роли команды flow (flow-*), 5 ревью-ролей каскада. Значения универсальны — тюнингуй под проект при необходимости.",
+  "target_context_tokens": 100000,
+  "economy_threshold_pct": 75,
+  "max_parallel_finders": 3,
+  "max_parallel_opus": 1,
+  "finder_report_kb": 4,
+  "reviewer_report_kb": 6,
+  "advocate_report_kb": 4,
+  "expert_report_kb": 6,
+  "router_report_kb": 2,
+  "advocate_gate_min_subsystems": 5,
+  "max_scope_expansions": 2,
+  "reports_kb_economy_trigger": 60,
+  "finder_batch_max_files": 6,
+  "finder_batch_small_subsystem_files": 2,
+  "economy_stall_waves": 1,
+  "escalation_min_severity_for_trigger1": "medium",
+  "parallel_min_independent_batches": 2
+}
