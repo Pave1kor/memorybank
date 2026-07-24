@@ -1,13 +1,14 @@
 <#
 .SYNOPSIS
-  Устанавливает фреймворк Memory Bank (правила/скиллы/агенты/банк) в целевой проект.
+  Installs the Memory Bank framework (rules/skills/agents/bank) into a target project.
 .EXAMPLE
   ./install.ps1 -Target C:\path\to\target-project
   ./install.ps1 -Target C:\path\to\target-project -Force
 .DESCRIPTION
-  По умолчанию НЕ перезаписывает уже существующие в целевом проекте файлы (skip-existing).
-  -Force перезаписывает. Копирует: .claude/ .specify/ memory-bank/ scripts/ CLAUDE.md
-  НЕ копирует: install.*, README.md фреймворка, .git/
+  By default does NOT overwrite files that already exist in the target (skip-existing).
+  -Force overwrites. Copies: .claude/ .specify/ memory-bank/ scripts/ CLAUDE.md
+  Does NOT copy: install.*, the framework README.md, .git/
+  NOTE: kept ASCII-only on purpose so Windows PowerShell 5.1 parses it regardless of console codepage.
 #>
 [CmdletBinding()]
 param(
@@ -22,13 +23,18 @@ if (-not (Test-Path -LiteralPath $Target -PathType Container)) {
 }
 $TargetFull = (Resolve-Path -LiteralPath $Target).Path
 if ($TargetFull -eq $Src) {
-  Write-Error "Target is the framework repo itself — choose another directory."; exit 1
+  Write-Error "Target is the framework repo itself - choose another directory."; exit 1
 }
 
 $Items = @('.claude', '.specify', 'memory-bank', 'scripts', 'CLAUDE.md')
-$copied = 0; $skipped = 0
+# Ephemeral/junk (gitignored in the framework) - never carried into a target project.
+$ExcludeNames = @('.recall-index.json', 'last-run-log.json', 'import-graph.json', '.DS_Store', 'Thumbs.db')
+$script:copied = 0
+$script:skipped = 0
 
 function Copy-One([string]$Rel) {
+  $leaf = Split-Path -Leaf $Rel
+  if (($ExcludeNames -contains $leaf) -or ($Rel -like '*__pycache__*') -or ($Rel -like '*.pyc')) { return }
   $s = Join-Path $Src $Rel
   $d = Join-Path $TargetFull $Rel
   if ((Test-Path -LiteralPath $d) -and -not $Force) {
@@ -54,9 +60,9 @@ foreach ($item in $Items) {
 }
 
 Write-Host ""
-Write-Host "Done. copied=$copied skipped=$skipped"
-Write-Host "Next steps in $TargetFull :"
-Write-Host "  1) Заполни CLAUDE.md (блок 'О проекте'), memory-bank/areas/{architecture,constraints}.md"
-Write-Host "  2) Допиши .specify/memory/constitution.md и .claude/code-analysis/architecture-zones.json"
-Write-Host "  3) Убедись, что ветки develop/main существуют"
-Write-Host "  4) Проверь банк: py scripts/check_memory_links.py"
+Write-Host "Done. copied=$($script:copied) skipped=$($script:skipped)"
+Write-Host "Next steps in the target project:"
+Write-Host "  1) Fill in CLAUDE.md ('About the project' block), memory-bank/areas/{architecture,constraints}.md"
+Write-Host "  2) Complete .specify/memory/constitution.md and .claude/code-analysis/architecture-zones.json"
+Write-Host "  3) Make sure develop/main branches exist (git checkout -b develop)"
+Write-Host "  4) Verify the bank: py scripts/check_memory_links.py"

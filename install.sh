@@ -30,9 +30,19 @@ fi
 
 ITEMS=( ".claude" ".specify" "memory-bank" "scripts" "CLAUDE.md" )
 
+# Эфемерное/мусор (gitignored в фреймворке) — НИКОГДА не переносим в целевой проект.
+EXCLUDE_BASENAMES=( ".recall-index.json" "last-run-log.json" "import-graph.json" ".DS_Store" "Thumbs.db" )
+is_excluded() {
+  local b; b="$(basename "$1")"
+  for e in "${EXCLUDE_BASENAMES[@]}"; do [ "$b" = "$e" ] && return 0; done
+  case "$1" in *__pycache__*|*.pyc) return 0;; esac
+  return 1
+}
+
 copied=0; skipped=0
 copy_file() {
   local rel="$1" s="$SRC/$1" d="$TARGET/$1"
+  if is_excluded "$rel"; then return; fi
   if [ -e "$d" ] && [ "$FORCE" -eq 0 ]; then
     echo "  skip (exists): $rel"; skipped=$((skipped+1)); return
   fi
